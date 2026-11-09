@@ -1,0 +1,716 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BIST AutoBot PRO</title>
+<style>
+:root{
+  --bg:#080e1a;
+  --card:#131f32;
+  --border:#2a3a52;
+  --text:#edf3ff;
+  --muted:#9aabc3;
+  --green:#20d5a0;
+  --red:#ff667e;
+  --blue:#3885ff;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:system-ui,Arial,sans-serif;
+}
+main{max-width:1100px;margin:auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between}
+h1{font-size:23px;margin:8px 0}
+h2{font-size:16px;margin:0 0 15px}
+small,.muted{color:var(--muted)}
+small{font-size:11px}
+.badge{
+  background:#35291d;color:#ffdc9c;
+  padding:8px;border-radius:20px;font-size:11px;
+}
+.warning{
+  background:#292219;border:1px solid #68512c;
+  color:#ffe0a5;padding:13px;border-radius:12px;
+  margin:18px 0;font-size:12px;line-height:1.6;
+}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:17px;min-width:0;
+}
+.metric label{color:var(--muted);font-size:12px}
+.metric strong{display:block;font-size:23px;margin:9px 0}
+.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:14px}
+nav{display:flex;gap:8px;overflow-x:auto;margin:18px 0}
+button{
+  border:1px solid #3a4b66;background:#22334e;color:white;
+  border-radius:10px;padding:12px;font-weight:700;cursor:pointer;
+}
+button.primary,.selected{background:var(--blue)}
+button.danger{background:#683043}
+button:disabled{opacity:.4;cursor:not-allowed}
+.buttons{display:flex;gap:8px;flex-wrap:wrap;margin:17px 0}
+.page{display:none}
+.page.active{display:block}
+.green{color:var(--green)}
+.red{color:var(--red)}
+.row{
+  display:flex;justify-content:space-between;
+  gap:10px;padding:12px 0;border-bottom:1px solid var(--border);
+}
+.table{overflow-x:auto}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th,td{
+  padding:12px 9px;border-bottom:1px solid var(--border);
+  text-align:left;font-size:12px;
+}
+th{color:var(--muted)}
+canvas{width:100%;height:190px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fields label{color:var(--muted);font-size:12px}
+input{
+  display:block;width:100%;background:#0b1424;color:white;
+  padding:12px;border:1px solid #435471;border-radius:9px;
+  margin-top:7px;
+}
+footer{text-align:center;color:var(--muted);font-size:11px;margin:25px}
+@media(max-width:750px){
+  .metrics{grid-template-columns:1fr 1fr}
+  .grid{grid-template-columns:1fr}
+  .metric strong{font-size:19px}
+  h1{font-size:19px}
+  .card{padding:14px}
+  nav button{white-space:nowrap}
+}
+</style>
+</head>
+
+<body>
+<main>
+<header>
+  <div>
+    <h1>↗ BIST AutoBot <span style="color:#60a5fa">PRO</span></h1>
+    <small>Algoritmik İşlem Kontrol Merkezi · v1.0</small>
+  </div>
+  <span class="badge">● SANAL MOD</span>
+</header>
+
+<div class="warning">
+  <b>DEMO:</b> Fiyatlar ve sinyaller simülasyondur.
+  Canlı BIST verisi veya A1 Capital emir bağlantısı bulunmaz.
+  İşlemler yalnızca manuel taramada gerçekleşir.
+</div>
+
+<div class="metrics">
+  <div class="card metric">
+    <label>Portföy Değeri</label>
+    <strong id="equity">20.000 ₺</strong>
+    <small>Sanal sermaye</small>
+  </div>
+  <div class="card metric">
+    <label>Kullanılabilir Nakit</label>
+    <strong id="cash">20.000 ₺</strong>
+    <small>İşlem bütçesi</small>
+  </div>
+  <div class="card metric">
+    <label>Toplam Kâr / Zarar</label>
+    <strong id="pnl">0 ₺</strong>
+    <small id="pnlPct">%0</small>
+  </div>
+  <div class="card metric">
+    <label>Açık Pozisyon</label>
+    <strong id="positions">0</strong>
+    <small id="botMode">Bot durduruldu</small>
+  </div>
+</div>
+
+<nav>
+  <button class="selected" data-tab="dashboard">Genel Bakış</button>
+  <button data-tab="scanner">Hisse Tarayıcı</button>
+  <button data-tab="portfolio">Portföy</button>
+  <button data-tab="history">İşlemler</button>
+  <button data-tab="settings">Ayarlar</button>
+</nav>
+
+<section id="dashboard" class="page active">
+  <div class="grid">
+    <div class="card">
+      <h2>Portföy Performansı</h2>
+      <canvas id="chart"></canvas>
+      <small>Sanal işlemlere göre portföy değişimi</small>
+    </div>
+
+    <div class="card">
+      <h2>Bot Kontrolü</h2>
+      <p id="status" class="muted">● Bot pasif</p>
+      <small>Arka planda çalışmaz. Her tarama manuel başlatılır.</small>
+      <div class="buttons">
+        <button class="primary" id="startBtn">▶ Başlat</button>
+        <button class="danger" id="stopBtn">■ Durdur</button>
+        <button id="scanBtn">⌕ Sanal Tarama</button>
+      </div>
+      <div class="row">
+        <small>Son sinyal</small>
+        <b id="signal">Henüz sinyal yok</b>
+      </div>
+      <div class="row">
+        <small>Son tarama</small>
+        <b id="lastScan">—</b>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>İzleme Listesi</h2>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th>Hisse</th><th>Sanal Fiyat</th>
+              <th>Değişim</th><th>Skor</th><th>Sinyal</th>
+            </tr>
+          </thead>
+          <tbody id="watchTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Risk Kontrolleri</h2>
+      <div id="riskSummary"></div>
+      <div class="row">
+        <small>A1 Capital bağlantısı</small>
+        <b class="red">BAĞLI DEĞİL</b>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="scanner" class="page">
+  <div class="card">
+    <h2>Sanal Hisse Tarayıcı</h2>
+    <p class="muted">Puanlar demo amaçlıdır; gerçek teknik analiz değildir.</p>
+    <button class="primary" id="scanBtn2">Sanal Tarama Yap</button>
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Hisse</th><th>Sanal Fiyat</th>
+            <th>Değişim</th><th>Skor</th><th>Sinyal</th>
+          </tr>
+        </thead>
+        <tbody id="scannerTable"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="portfolio" class="page">
+  <div class="card">
+    <h2>Açık Sanal Pozisyonlar</h2>
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Hisse</th><th>Lot</th><th>Maliyet</th>
+            <th>Sanal Fiyat</th><th>K/Z</th>
+          </tr>
+        </thead>
+        <tbody id="holdingsTable"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="history" class="page">
+  <div class="card">
+    <h2>İşlem Geçmişi</h2>
+    <button id="csvBtn">CSV İndir</button>
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Tarih</th><th>İşlem</th><th>Hisse</th>
+            <th>Lot</th><th>Fiyat</th><th>Tutar</th>
+          </tr>
+        </thead>
+        <tbody id="tradesTable"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="settings" class="page">
+  <div class="card">
+    <h2>Risk Ayarları</h2>
+    <div class="fields">
+      <label>İşlem Riski (%)
+        <input id="risk" type="number" min="0.1" max="5" step="0.1">
+      </label>
+      <label>Tek Hisse Bütçesi (%)
+        <input id="allocation" type="number" min="5" max="100" step="5">
+      </label>
+      <label>Stop-Loss (%)
+        <input id="stopLoss" type="number" min="0.5" max="15" step="0.5">
+      </label>
+      <label>Take-Profit (%)
+        <input id="takeProfit" type="number" min="1" max="30" step="0.5">
+      </label>
+    </div>
+    <div class="buttons">
+      <button class="primary" id="saveBtn">Ayarları Kaydet</button>
+      <button class="danger" id="resetBtn">Demoyu Sıfırla</button>
+    </div>
+    <p class="muted">Ayarlar yalnızca bu tarayıcıda saklanır.</p>
+  </div>
+</section>
+
+<footer>BIST AutoBot PRO v1.0 · PAPER TRADING</footer>
+</main>
+
+<script>
+"use strict";
+
+const symbols = [
+  "PGSUS","THYAO","ASELS","TUPRS",
+  "TOASO","AKBNK","TCELL","BIMAS"
+];
+
+const demoPrices = [
+  138.40,308.20,184.60,191.35,
+  238.40,68.75,105.30,530.00
+];
+
+const KEY = "bist-autobot-pro-v1";
+
+function defaults() {
+  return {
+    cash:20000,
+    prices:Object.fromEntries(
+      symbols.map((t,i)=>[t,demoPrices[i]])
+    ),
+    holdings:{},
+    trades:[],
+    scores:{},
+    changes:{},
+    settings:{
+      risk:1,
+      allocation:50,
+      stopLoss:2,
+      takeProfit:4
+    },
+    history:[20000],
+    running:false,
+    signal:"Henüz sinyal yok",
+    lastScan:null
+  };
+}
+
+let state;
+
+try {
+  state = {...defaults(),...JSON.parse(localStorage.getItem(KEY))};
+  if (!state.holdings || !state.prices || !state.settings) {
+    throw Error("Invalid data");
+  }
+} catch {
+  state = defaults();
+}
+
+state.running = false;
+
+const $ = id => document.getElementById(id);
+
+const fmt = n => Number(n).toLocaleString("tr-TR",{
+  minimumFractionDigits:2,
+  maximumFractionDigits:2
+});
+
+const tl = n => fmt(n)+" ₺";
+
+function equity() {
+  let total = state.cash;
+  for (const [symbol,h] of Object.entries(state.holdings)) {
+    total += h.qty*state.prices[symbol];
+  }
+  return total;
+}
+
+function save() {
+  try {
+    localStorage.setItem(KEY,JSON.stringify(state));
+  } catch(e) {
+    console.warn("Local storage unavailable",e);
+  }
+}
+
+function trade(type,symbol,qty,price) {
+  if (!Number.isInteger(qty) || qty<=0) return false;
+
+  const amount = qty*price;
+
+  if (type==="AL") {
+    if (state.holdings[symbol] || amount>state.cash+0.00001)
+      return false;
+
+    state.cash -= amount;
+    state.holdings[symbol] = {qty,entry:price};
+  } else {
+    const holding = state.holdings[symbol];
+    if (!holding || qty!==holding.qty) return false;
+
+    state.cash += amount;
+    delete state.holdings[symbol];
+  }
+
+  state.trades.unshift({
+    date:new Date().toISOString(),
+    type,symbol,qty,price,amount
+  });
+
+  state.trades = state.trades.slice(0,250);
+  return true;
+}
+
+function getSignal(symbol) {
+  const score = state.scores[symbol];
+  if (score===undefined) return "—";
+  if (score>=75) return "AL İZLE";
+  if (score<=35) return "ZAYIF";
+  return "BEKLE";
+}
+
+function render() {
+  const total = equity();
+  const profit = total-20000;
+
+  $("equity").textContent = tl(total);
+  $("cash").textContent = tl(state.cash);
+  $("pnl").textContent = (profit>0?"+":"")+tl(profit);
+  $("pnl").className = profit>=0?"green":"red";
+  $("pnlPct").textContent = fmt(profit/200)+"%";
+
+  $("positions").textContent =
+    Object.keys(state.holdings).length;
+
+  $("botMode").textContent =
+    state.running?"Demo aktif":"Bot durduruldu";
+
+  $("status").textContent =
+    state.running?"● Demo bot aktif":"● Bot pasif";
+
+  $("status").className =
+    state.running?"green":"muted";
+
+  $("startBtn").disabled=state.running;
+  $("stopBtn").disabled=!state.running;
+
+  $("signal").textContent=state.signal;
+
+  $("lastScan").textContent=state.lastScan
+    ?new Date(state.lastScan).toLocaleTimeString("tr-TR")
+    :"—";
+
+  const rows = symbols.map(symbol=>{
+    const price=state.prices[symbol];
+    const change=state.changes[symbol]||0;
+    const score=state.scores[symbol];
+
+    return \`
+      <tr>
+        <td><b>\${symbol}</b></td>
+        <td>\${fmt(price)}</td>
+        <td class="\${change>=0?"green":"red"}">
+          \${change>=0?"+":""}\${fmt(change)}%
+        </td>
+        <td>\${score===undefined?"—":score}</td>
+        <td>\${getSignal(symbol)}</td>
+      </tr>
+    \`;
+  }).join("");
+
+  $("watchTable").innerHTML=rows;
+  $("scannerTable").innerHTML=rows;
+
+  const holdings=Object.entries(state.holdings);
+
+  $("holdingsTable").innerHTML=holdings.length
+    ?holdings.map(([symbol,h])=>{
+      const pnl=h.qty*(state.prices[symbol]-h.entry);
+      return \`
+        <tr>
+          <td>\${symbol}</td>
+          <td>\${h.qty}</td>
+          <td>\${fmt(h.entry)}</td>
+          <td>\${fmt(state.prices[symbol])}</td>
+          <td class="\${pnl>=0?"green":"red"}">\${tl(pnl)}</td>
+        </tr>
+      \`;
+    }).join("")
+    :'<tr><td colspan="5">Henüz pozisyon yok.</td></tr>';
+
+  $("tradesTable").innerHTML=state.trades.length
+    ?state.trades.map(t=>\`
+      <tr>
+        <td>\${new Date(t.date).toLocaleString("tr-TR")}</td>
+        <td>\${t.type}</td>
+        <td>\${t.symbol}</td>
+        <td>\${t.qty}</td>
+        <td>\${fmt(t.price)}</td>
+        <td>\${tl(t.amount)}</td>
+      </tr>
+    \`).join("")
+    :'<tr><td colspan="6">Henüz sanal işlem yok.</td></tr>';
+
+  const s=state.settings;
+
+  $("riskSummary").innerHTML=[
+    ["İşlem başına risk",s.risk],
+    ["Tek hisse bütçesi",s.allocation],
+    ["Stop-Loss",s.stopLoss],
+    ["Take-Profit",s.takeProfit]
+  ].map(([name,value])=>\`
+    <div class="row">
+      <small>\${name}</small>
+      <b>%\${value}</b>
+    </div>
+  \`).join("");
+
+  drawChart();
+}
+
+function scan() {
+  if (!state.running) {
+    alert("Önce botu başlat.");
+    return;
+  }
+
+  // Rastgele demo fiyatları ve demo skorları.
+  for (const symbol of symbols) {
+    const oldPrice=state.prices[symbol];
+    const movement=(Math.random()-0.5)*0.035;
+
+    state.prices[symbol]=Math.max(
+      0.01,
+      Math.round(oldPrice*(1+movement)*100)/100
+    );
+
+    state.changes[symbol]=
+      100*(state.prices[symbol]/oldPrice-1);
+
+    state.scores[symbol]=Math.max(
+      5,
+      Math.min(95,Math.round(
+        50+movement*1200+(Math.random()-0.5)*30
+      ))
+    );
+  }
+
+  let result="BEKLE";
+  const cfg=state.settings;
+
+  // Stop / hedef kontrolü.
+  for (const [symbol,h] of Object.entries({...state.holdings})) {
+    const price=state.prices[symbol];
+    const change=100*(price/h.entry-1);
+
+    if (change<=-cfg.stopLoss || change>=cfg.takeProfit) {
+      if (trade("SAT",symbol,h.qty,price)) {
+        result="SANAL SAT "+symbol;
+      }
+    }
+  }
+
+  // En yüksek skorlu sanal hisseyi seç.
+  if (Object.keys(state.holdings).length===0) {
+    const ranked=[...symbols].sort(
+      (a,b)=>state.scores[b]-state.scores[a]
+    );
+
+    const symbol=ranked[0];
+    const price=state.prices[symbol];
+
+    if (state.scores[symbol]>=75) {
+      const budget=Math.min(
+        state.cash,
+        state.cash*cfg.allocation/100
+      );
+
+      const riskBudget=equity()*cfg.risk/100;
+      const lossPerShare=price*cfg.stopLoss/100;
+
+      const qty=Math.floor(Math.min(
+        budget/price,
+        riskBudget/lossPerShare
+      ));
+
+      if (trade("AL",symbol,qty,price)) {
+        result="SANAL AL "+symbol+" · "+qty+" lot";
+      }
+    }
+  }
+
+  state.signal=result;
+  state.lastScan=new Date().toISOString();
+
+  state.history.push(equity());
+  state.history=state.history.slice(-80);
+
+  save();
+  render();
+}
+
+function drawChart() {
+  const canvas=$("chart");
+  const rect=canvas.getBoundingClientRect();
+
+  if (!rect.width) return;
+
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=rect.width*dpr;
+  canvas.height=rect.height*dpr;
+
+  const ctx=canvas.getContext("2d");
+  ctx.scale(dpr,dpr);
+
+  const w=rect.width;
+  const h=rect.height;
+
+  ctx.strokeStyle="#2b3d58";
+  ctx.lineWidth=1;
+
+  for(let i=1;i<=3;i++){
+    const y=h*i/4;
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(w,y);
+    ctx.stroke();
+  }
+
+  const values=state.history;
+  const min=Math.min(19900,...values);
+  const max=Math.max(20100,...values);
+  const range=Math.max(max-min,100);
+
+  ctx.beginPath();
+  ctx.strokeStyle="#20d5a0";
+  ctx.lineWidth=2.5;
+
+  values.forEach((value,i)=>{
+    const x=10+i*(w-20)/Math.max(1,values.length-1);
+    const y=10+(max-value)/range*(h-20);
+
+    if(i===0)ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  });
+
+  ctx.stroke();
+}
+
+// Sayfalar
+document.querySelectorAll("[data-tab]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    document.querySelectorAll("[data-tab]").forEach(b=>{
+      b.classList.remove("selected");
+    });
+
+    document.querySelectorAll(".page").forEach(page=>{
+      page.classList.remove("active");
+    });
+
+    button.classList.add("selected");
+    $(button.dataset.tab).classList.add("active");
+
+    if(button.dataset.tab==="dashboard")drawChart();
+  });
+});
+
+$("startBtn").onclick=()=>{
+  state.running=true;
+  save();
+  render();
+};
+
+$("stopBtn").onclick=()=>{
+  state.running=false;
+  save();
+  render();
+};
+
+$("scanBtn").onclick=scan;
+$("scanBtn2").onclick=scan;
+
+function fillSettings(){
+  for(const key of Object.keys(state.settings)){
+    $(key).value=state.settings[key];
+  }
+}
+
+$("saveBtn").onclick=()=>{
+  const ranges={
+    risk:[0.1,5],
+    allocation:[5,100],
+    stopLoss:[0.5,15],
+    takeProfit:[1,30]
+  };
+
+  const next={};
+
+  for(const [key,[min,max]] of Object.entries(ranges)){
+    const input=$(key);
+    const value=Number(input.value);
+
+    if(!input.value.trim() ||
+       !Number.isFinite(value) ||
+       value<min || value>max){
+      alert(key+" için "+min+"–"+max+" aralığında değer gir.");
+      return;
+    }
+
+    next[key]=value;
+  }
+
+  state.settings=next;
+  save();
+  render();
+  alert("Ayarlar kaydedildi.");
+};
+
+$("resetBtn").onclick=()=>{
+  if(!confirm("Tüm sanal işlem geçmişi silinsin mi?"))return;
+
+  state=defaults();
+  save();
+  fillSettings();
+  render();
+};
+
+$("csvBtn").onclick=()=>{
+  const rows=[
+    ["Tarih","İşlem","Hisse","Lot","Fiyat","Tutar"],
+    ...state.trades.map(t=>[
+      t.date,t.type,t.symbol,t.qty,t.price,t.amount
+    ])
+  ];
+
+  const csv="\uFEFF"+rows.map(r=>r.join(";")).join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+
+  const a=document.createElement("a");
+  a.href=url;
+  a.download="bist-autobot-islemler.csv";
+  a.click();
+
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+
+window.addEventListener("resize",drawChart);
+
+fillSettings();
+render();
+</script>
+</body>
+</html>
